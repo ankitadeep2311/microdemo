@@ -1,0 +1,97 @@
+name: Build & Deploy Microdemo to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+env:
+  RESOURCE_GROUP: microdemo-rg
+  CONTAINERAPPS_ENV: microdemo-env
+  LOCATION: centralindia
+  ACR_NAME: ${{ secrets.ACR_NAME }}
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Install Azure Container Apps extension
+        run: |
+          az extension add --name containerapp --yes --upgrade
+
+      - name: Login to ACR
+        run: |
+          az acr login --name $ACR_NAME
+
+      # Build & push images
+      - name: Build & push config-server
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/config-server:${{ github.sha }} ./config-server
+          docker push $ACR_LOGIN_SERVER/config-server:${{ github.sha }}
+
+      - name: Build & push user-service
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/user-service:${{ github.sha }} ./user-service
+          docker push $ACR_LOGIN_SERVER/user-service:${{ github.sha }}
+
+      - name: Build & push orders-service
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/orders-service:${{ github.sha }} ./orders-service
+          docker push $ACR_LOGIN_SERVER/orders-service:${{ github.sha }}
+
+      - name: Build & push catalog-service
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/catalog-service:${{ github.sha }} ./catalog-service
+          docker push $ACR_LOGIN_SERVER/catalog-service:${{ github.sha }}
+
+      - name: Build & push api-gateway
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/api-gateway:${{ github.sha }} ./api-gateway
+          docker push $ACR_LOGIN_SERVER/api-gateway:${{ github.sha }}
+
+      # Deploy: update each Container App to use new image tag
+      - name: Update config-server
+        run: |
+          az containerapp update \
+            --name config-server \
+            --resource-group $RESOURCE_GROUP \
+            --image $ACR_LOGIN_SERVER/config-server:${{ github.sha }}
+
+      - name: Update user-service
+        run: |
+          az containerapp update \
+            --name user-service \
+            --resource-group $RESOURCE_GROUP \
+            --image $ACR_LOGIN_SERVER/user-service:${{ github.sha }}
+
+      - name: Update orders-service
+        run: |
+          az containerapp update \
+            --name orders-service \
+            --resource-group $RESOURCE_GROUP \
+            --image $ACR_LOGIN_SERVER/orders-service:${{ github.sha }}
+
+      - name: Update catalog-service
+        run: |
+          az containerapp update \
+            --name catalog-service \
+            --resource-group $RESOURCE_GROUP \
+            --image $ACR_LOGIN_SERVER/catalog-service:${{ github.sha }}
+
+      - name: Update api-gateway
+        run: |
+          az containerapp update \
+            --name api-gateway \
+            --resource-group $RESOURCE_GROUP \
+            --image $ACR_LOGIN_SERVER/api-gateway:${{ github.sha }}

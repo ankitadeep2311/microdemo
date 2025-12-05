@@ -11,15 +11,15 @@ spring:
     gateway:
       routes:
         - id: users
-          uri: http://localhost:8081
+          uri: http://user-service:8081
           predicates:
             - Path=/users/**
         - id: orders
-          uri: http://localhost:8082
+          uri: http://orders-service:8082
           predicates:
             - Path=/orders/**
         - id: catalog
-          uri: http://localhost:8083
+          uri: http://catalog-service:8083
           predicates:
             - Path=/catalog/**
 
